@@ -1,3 +1,13 @@
+## Development Process
+This project was developed iteratively over several months as assessed
+university coursework. Version control was used extensively on a
+university-managed GitHub account.
+
+The repository hosted here is a cleaned and documented mirror intended
+for portfolio review. A detailed development log outlining algorithm
+implementation, testing, refactoring, and release milestones is
+available on request.
+
 ------------------------------------------------------
 Welcome to my Pac-Man AI Search Algorithm Simulator!
 ------------------------------------------------------
