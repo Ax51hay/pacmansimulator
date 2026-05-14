@@ -368,19 +368,15 @@ class PacMan:
         """
 
         if(maze[self.y - 1][self.x] in (1, 2)):
-            print("ghost above!")
             return self.avoid(maze, "above", goal, screen)
 
         if(maze[self.y + 1][self.x] in (1, 2)):
-            print("ghost below!")
             return self.avoid(maze, "below", goal, screen)
 
         if(maze[self.y][self.x + 1] in (1, 2)):
-            print("ghost right!")
             return self.avoid(maze, "right", goal, screen)
-        
+
         if(maze[self.y][self.x - 1] in (1, 2)):
-            print("ghost left!")
             return self.avoid(maze, "left", goal, screen)
 
     def avoid(self, maze, avoiding, goal, screen):
@@ -395,7 +391,6 @@ class PacMan:
         """
         valid_moves = self.get_moves((self.y, self.x), maze, avoiding)
         if not valid_moves:
-            print("No valid moves!")
             return False
     
         best_moves = self.get_best_moves(valid_moves, goal, maze)

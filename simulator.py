@@ -13,13 +13,12 @@ Classes Used:
     - Adversary: Represents an adversary (ghost) agent that can be made as either sationary, random or tracking.
 
 Usage:
-    Run the script to start the Pac-Man simulation. Use the main menu to select maze size. Customise amount of goals by typing a number with the keyboard. 
+    Run the script to start the Pac-Man simulation. Use the main menu to select maze size. Customise amount of goals by typing a number with the keyboard.
     Use side menu in simulation window to execute search algorithms, or make adjustments to the environment.
     Control Pac-Man's movement manually using arrow keys.
     Reset once an algorithm has completed running and test another one.
-    Amount of moves taken to reach an end goal will be displayed in the console if the algorithm executed succesfully
+    Amount of moves taken to reach an end goal will be displayed in the simulation window if the algorithm executed succesfully.
 """
-#Imports required classes
 from pacman import PacMan
 from foodGoal import FoodGoal
 from adversary import Adversary
@@ -30,634 +29,680 @@ import copy
 
 pygame.init()
 
-#Initial dimesions for main menu
-window_width = 800
+# ── Display ──────────────────────────────────────────────────────────────────
+window_width  = 800
 window_height = 800
 
-#The tile size shrinks as the maze size grows to proportionise
-tile_size_large = 50
+tile_size_large  = 50
 tile_size_medium = 80
-tile_size_small = 100
+tile_size_small  = 100
 
-#I used variables here for ease of access
-white = (255, 255, 255)
-black = (0, 0, 0)
-dark_blue = (0, 0, 128)
+# ── Colour palette ───────────────────────────────────────────────────────────
+black       = (0,   0,   0  )
+white       = (255, 255, 255)
+dark_blue   = (0,   0,   128)   # maze walls
+yellow      = (255, 215, 0  )   # Pac-Man yellow — borders, titles, accents
+navy        = (15,  15,  50 )   # button / panel fill
+info_bg     = (10,  10,  38 )   # info panel fill
+dim_white   = (180, 180, 210)   # label text inside info panel
+green_fill  = (0,   110, 0  )   # active / selected button fill
+green_bdr   = (0,   210, 0  )   # active / selected button border
+red_text    = (255, 90,  90 )   # "caught" status
+green_text  = (100, 255, 100)   # "beaten" status
+amber_text  = (255, 200, 0  )   # neutral status / warnings
 
-#Prevents the game loop from constantly executing algorithms and options
-#All agent booleans
-DFS = False
-BFS = False
-UCS = False
-AStar = False
-Reflex = False
-Minimax = False
-ABPruning = False
-Expectimax = False
-
-#Initial speed setting
-speed: int = 1
-
-#Resets changing variables
-steps = 0
-initial_food_locations = []
-initial_ghost_locations = []
-
-#Manages maintenance of the environment
-goalFound = False
-pathFound = False
-selectedGhosts = []
-Go = False
-mazeCreated = False
-
-#Prevents game loop form producing more than one of each variable
-Ghost = False
-goalCreated = False
-
-screen = pygame.display.set_mode((window_width, window_height))
-
-pygame.display.set_caption("Pac-Man AI Search Algorithm Simulator")
-
-#Maze sizes are stored in a dictionary, mazes are created using 2D Arrays
-#Walls are denoted by "W" and empty spaces are denoted by 0
-#Ghosts will be depicted by a 2, and its surrounding tiles by a 1
+# ── Maze definitions ─────────────────────────────────────────────────────────
 maze_sizes = {
     "Large": (tile_size_large, [
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
-    ["W", 0, 0, 0, 0, 0, 0, "W", 0, 0, 0, 0, 0, 0, 0, "W"],
-    ["W", 0, "W", 0, "W", "W", 0, 0, 0, "W", "W", "W", 0, "W", 0, "W"],
-    ["W", 0, "W", 0, "W", "W", 0, "W", 0, 0, 0, 0, 0, "W", 0, "W"],
-    ["W", 0, "W", 0, 0, "W", 0, "W", "W", "W", 0, "W", 0, "W", 0, "W"],
-    ["W", 0, "W", "W", 0, "W", 0, "W", 0, 0, 0, 0, 0, "W", 0, "W"],
-    ["W", 0, 0, 0, 0, "W", 0, 0, 0, "W", 0, "W", 0, 0, 0, "W"],
-    ["W", 0, "W", "W", 0, "W", 0, "W", 0, "W", 0, "W", "W", "W", 0, "W"],
-    ["W", 0, "W", 0, 0, 0, 0, "W", 0, "W", 0, 0, 0, 0, 0, "W"],
-    ["W", 0, "W", 0, "W", 0, "W", "W", 0, "W", 0, "W", "W", "W", 0, "W"],
-    ["W", 0, "W", 0, 0, 0, "W", 0, 0, 0, 0, 0, 0, 0, 0, "W"],
-    ["W", 0, "W", "W", "W", 0, 0, 0, "W", "W", 0, "W", "W", 0, "W", "W"],
-    ["W", 0, 0, 0, 0, 0, "W", 0, 0, "W", 0, 0, 0, 0, 0, "W"],
-    ["W", 0, "W", 0, "W", 0, "W", "W", 0, 0, 0, "W", 0, "W", 0, "W"],
-    ["W", 0, 0, 0, 0, 0, 0, 0, 0, "W", 0, 0, 0, 0, 0, "W"],
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
+    ["W","W","W","W","W","W","W","W","W","W","W","W","W","W","W","W"],
+    ["W", 0,  0,  0,  0,  0,  0, "W", 0,  0,  0,  0,  0,  0,  0, "W"],
+    ["W", 0, "W", 0, "W","W", 0,  0,  0, "W","W","W", 0, "W", 0, "W"],
+    ["W", 0, "W", 0, "W","W", 0, "W", 0,  0,  0,  0,  0, "W", 0, "W"],
+    ["W", 0, "W", 0,  0, "W", 0, "W","W","W", 0, "W", 0, "W", 0, "W"],
+    ["W", 0, "W","W", 0, "W", 0, "W", 0,  0,  0,  0,  0, "W", 0, "W"],
+    ["W", 0,  0,  0,  0, "W", 0,  0,  0, "W", 0, "W", 0,  0,  0, "W"],
+    ["W", 0, "W","W", 0, "W", 0, "W", 0, "W", 0, "W","W","W", 0, "W"],
+    ["W", 0, "W", 0,  0,  0,  0, "W", 0, "W", 0,  0,  0,  0,  0, "W"],
+    ["W", 0, "W", 0, "W", 0, "W","W", 0, "W", 0, "W","W","W", 0, "W"],
+    ["W", 0, "W", 0,  0,  0, "W", 0,  0,  0,  0,  0,  0,  0,  0, "W"],
+    ["W", 0, "W","W","W", 0,  0,  0, "W","W", 0, "W","W", 0, "W","W"],
+    ["W", 0,  0,  0,  0,  0, "W", 0,  0, "W", 0,  0,  0,  0,  0, "W"],
+    ["W", 0, "W", 0, "W", 0, "W","W", 0,  0,  0, "W", 0, "W", 0, "W"],
+    ["W", 0,  0,  0,  0,  0,  0,  0,  0, "W", 0,  0,  0,  0,  0, "W"],
+    ["W","W","W","W","W","W","W","W","W","W","W","W","W","W","W","W"],
     ]),
     "Medium": (tile_size_medium, [
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
-    ["W", 0, 0, "W", 0, 0, 0, 0, 0, "W"],
-    ["W", "W", 0, "W", 0, "W", "W", "W", 0, "W"],
-    ["W", 0, 0, 0, 0, 0, 0, "W", 0, "W"],
-    ["W", 0, "W", 0, "W", 0, "W", "W", 0, "W"],
-    ["W", 0, "W", 0, "W", 0, 0, 0, 0, "W"],
-    ["W", 0, "W", 0, 0, 0, "W", "W", 0, "W"],
-    ["W", 0, "W", 0, "W", 0, "W", "W", "W", "W"],
-    ["W", 0, 0, 0, "W", 0, 0, 0, 0, "W"],
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
+    ["W","W","W","W","W","W","W","W","W","W"],
+    ["W", 0,  0, "W", 0,  0,  0,  0,  0, "W"],
+    ["W","W", 0, "W", 0, "W","W","W", 0, "W"],
+    ["W", 0,  0,  0,  0,  0,  0, "W", 0, "W"],
+    ["W", 0, "W", 0, "W", 0, "W","W", 0, "W"],
+    ["W", 0, "W", 0, "W", 0,  0,  0,  0, "W"],
+    ["W", 0, "W", 0,  0,  0, "W","W", 0, "W"],
+    ["W", 0, "W", 0, "W", 0, "W","W","W","W"],
+    ["W", 0,  0,  0, "W", 0,  0,  0,  0, "W"],
+    ["W","W","W","W","W","W","W","W","W","W"],
     ]),
     "Small": (tile_size_small, [
-    ["W", "W", "W", "W", "W", "W", "W", "W"],
-    ["W", 0, "W", 0, 0, "W", 0, "W"],
-    ["W", 0, "W", 0, "W", "W", 0, "W"],
-    ["W", 0, 0, 0, "W", "W", 0, "W"],
-    ["W", 0, "W", 0, 0, 0, 0, "W"],
-    ["W", 0, "W", "W", 0, "W", 0, "W"],
-    ["W", 0, 0, "W", 0, 0, 0, "W"],
-    ["W", "W", "W", "W", "W", "W", "W", "W"],
+    ["W","W","W","W","W","W","W","W"],
+    ["W", 0, "W", 0,  0, "W", 0, "W"],
+    ["W", 0, "W", 0, "W","W", 0, "W"],
+    ["W", 0,  0,  0, "W","W", 0, "W"],
+    ["W", 0, "W", 0,  0,  0,  0, "W"],
+    ["W", 0, "W","W", 0, "W", 0, "W"],
+    ["W", 0,  0, "W", 0,  0,  0, "W"],
+    ["W","W","W","W","W","W","W","W"],
     ]),
     "MultiPath": (tile_size_medium, [
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
-    ["W", 0, 0, 0, 0, 0, 0, 0, "W", "W"],
-    ["W", 0, "W", 0, "W", 0, "W", 0, "W", "W"],
-    ["W", 0, 0, 0, 0, 0, 0, 0, "W", "W"],
-    ["W", 0, "W", 0, "W", 0, "W", 0, "W", "W"],
-    ["W", 0, 0, 0, 0, 0, 0, 0, "W", "W"],
-    ["W", 0, "W", 0, "W", 0, "W", 0, "W", "W"],
-    ["W", 0, 0, 0, 0, 0, 0, 0, "W", "W"],
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
-    ["W", "W", "W", "W", "W", "W", "W", "W", "W", "W"],
+    ["W","W","W","W","W","W","W","W","W","W"],
+    ["W", 0,  0,  0,  0,  0,  0,  0, "W","W"],
+    ["W", 0, "W", 0, "W", 0, "W", 0, "W","W"],
+    ["W", 0,  0,  0,  0,  0,  0,  0, "W","W"],
+    ["W", 0, "W", 0, "W", 0, "W", 0, "W","W"],
+    ["W", 0,  0,  0,  0,  0,  0,  0, "W","W"],
+    ["W", 0, "W", 0, "W", 0, "W", 0, "W","W"],
+    ["W", 0,  0,  0,  0,  0,  0,  0, "W","W"],
+    ["W","W","W","W","W","W","W","W","W","W"],
+    ["W","W","W","W","W","W","W","W","W","W"],
     ])
 }
 
-#The different speeds available in the simulation
 speeds = {"Slow": 0.75, "Fast": 0.5, "Debug": 0}
 
-#Sets initial state and speed of program
-current_state = "MainMenu"
-current_speed = "Slow"
-
-#Defualt variables frequently used when making my interface consistent
-button_x = 300
-button_y = 360
-button_spacing = 50
-button_height = 40
-button_width = 200
-
-#Formatting Main Menu buttons
+# ── Button layout ─────────────────────────────────────────────────────────────
+# Main menu  (800 × 800, buttons centred at x = 400)
 main_menu_buttons = {
-    "Small": pygame.Rect(button_x, button_y, button_width, button_height),
-    "Medium": pygame.Rect(button_x, button_y + button_spacing, button_width, button_height),
-    "Large": pygame.Rect(button_x, button_y + 2 * button_spacing, button_width, button_height),
-    "MultiPath": pygame.Rect(button_x, button_y + 3 * button_spacing, button_width, button_height),
-    "Exit": pygame.Rect(button_x, button_y + 5 * button_spacing, button_width, button_height),
+    "Small":     pygame.Rect(250, 238, 300, 44),
+    "Medium":    pygame.Rect(250, 292, 300, 44),
+    "Large":     pygame.Rect(250, 346, 300, 44),
+    "MultiPath": pygame.Rect(250, 400, 300, 44),
+    "Exit":      pygame.Rect(250, 494, 300, 44),
 }
 
-#Formatting Customisation Menu buttons
+# Customise  (800 × 800)
 customise_buttons = {
-    "Stationary": pygame.Rect(50, 275 + 3 * button_spacing, button_width, button_height),
-    "Random": pygame.Rect(button_x, 275 + 3 * button_spacing, button_width, button_height),
-    "Tracker": pygame.Rect(550, 275 + 3 * button_spacing, button_width, button_height),
-    "Run": pygame.Rect(button_x, button_y + 4 * button_spacing, button_width, button_height),
-    "Main Menu": pygame.Rect(button_x, button_y + 7 * button_spacing, button_width, button_height),
+    "Stationary": pygame.Rect(110, 300, 180, 44),
+    "Random":     pygame.Rect(310, 300, 180, 44),
+    "Tracker":    pygame.Rect(510, 300, 180, 44),
+    "Run":        pygame.Rect(270, 380, 260, 50),
+    "Main Menu":  pygame.Rect(300, 660, 200, 40),
 }
 
-#Formatting Input box for entering an amount of goals
-input_box = pygame.Rect(window_width // 2 - 100, window_height // 2 - 150 , 200, 40)
-input_font = pygame.font.Font(None, 36)
-input_color = black
-num_goals_input = ""
+input_box   = pygame.Rect(290, 198, 220, 44)
+input_font  = pygame.font.Font(None, 32)
 
-#Formatting Simulation buttons
+# Simulation sidebar  (1200 × 800 window; sidebar occupies x = 800–1200)
+# Buttons centred at x = 1000: left edge = 860, width = 280
+_SX = 860
+_SW = 280
+_SH = 40
+
 simulation_buttons = {
-    "DFS": pygame.Rect(900, 25, button_width, button_height),
-    "BFS": pygame.Rect(900, 25 + button_spacing, button_width, button_height),
-    "UCS": pygame.Rect(900, 25 + button_spacing*2, button_width, button_height),
-    "A*": pygame.Rect(900, 25 + button_spacing*3, button_width, button_height),
-    "Reflex": pygame.Rect(900, 25 + button_spacing*4, button_width, button_height),
-    "Minimax": pygame.Rect(900, 25 + button_spacing*5, button_width, button_height),
-    "AB Pruning": pygame.Rect(900, 25 + button_spacing*6, button_width, button_height),
-    "(WIP)Expectimax": pygame.Rect(900, 25 + button_spacing*7, button_width, button_height),
-    "Speed": pygame.Rect(900, 725 - button_spacing*5, button_width, button_height),
-    "Rand Goal": pygame.Rect(900, 725 - button_spacing*4, button_width, button_height),
-    "Rand Ghost": pygame.Rect(900, 725 - button_spacing*3, button_width, button_height),
-    "Reset": pygame.Rect(900, 725 - button_spacing*2, button_width, button_height),
-    "Customisation": pygame.Rect(900, 725 - button_spacing, button_width, button_height),
-    "Menu": pygame.Rect(900, 725, button_width, button_height),
+    # ── Algorithms  (label "ALGORITHMS" sits above at y = 8) ──
+    "DFS":             pygame.Rect(_SX,  28, _SW, _SH),
+    "BFS":             pygame.Rect(_SX,  73, _SW, _SH),
+    "UCS":             pygame.Rect(_SX, 118, _SW, _SH),
+    "A*":              pygame.Rect(_SX, 163, _SW, _SH),
+    "Reflex":          pygame.Rect(_SX, 208, _SW, _SH),
+    "Minimax":         pygame.Rect(_SX, 253, _SW, _SH),
+    "AB Pruning":      pygame.Rect(_SX, 298, _SW, _SH),
+    "(WIP)Expectimax": pygame.Rect(_SX, 343, _SW, _SH),
+    # ── Info panel occupies y = 388–500 ──
+    # ── Controls  (label "CONTROLS" sits above at y = 504) ──
+    "Speed":           pygame.Rect(_SX, 522, _SW, _SH),
+    "Rand Goal":       pygame.Rect(_SX, 567, _SW, _SH),
+    "Rand Ghost":      pygame.Rect(_SX, 612, _SW, _SH),
+    "Reset":           pygame.Rect(_SX, 657, _SW, _SH),
+    "Customisation":   pygame.Rect(_SX, 702, _SW, _SH),
+    "Menu":            pygame.Rect(_SX, 747, _SW, _SH),
 }
 
-#Game Loop
-running = True
-while running:
-    #Allows for exit of game loop
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-            
-        if current_state == "MainMenu":
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                #All main menu maze buttons will progress game state to "Customisation"
-                x, y = event.pos
-                for choice, button in main_menu_buttons.items():
-                    if button.collidepoint(x, y):
-                        if(choice == "Exit"):
-                            pygame.quit()
-                            sys.exit()
-                        #Initialises size of maze
-                        current_size = choice
-                        current_tile_size, current_maze = maze_sizes[current_size]
-                        current_state = "Customise"
+# Maps sidebar button labels → state flag keys (algorithm buttons only)
+ALGO_FLAGS = {
+    "DFS": "DFS", "BFS": "BFS", "UCS": "UCS", "A*": "AStar",
+    "Reflex": "Reflex", "Minimax": "Minimax",
+    "AB Pruning": "ABPruning", "(WIP)Expectimax": "Expectimax",
+}
 
-        if current_state == "Customise":
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_BACKSPACE:
-                    # Remove the last character if backspace is pressed
-                    num_goals_input = num_goals_input[:-1]
-                else:
-                    # Append the entered character to the input
-                    num_goals_input += event.unicode
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = event.pos
-                for choice, button in customise_buttons.items():
-                    # Handles adding/removing types of ghosts
-                    # Number of each ghost limited to 1
-                    if button.collidepoint(x, y):
-                        if(choice == "Tracker"):
-                            if "tracker" not in selectedGhosts:
-                                selectedGhosts.append("tracker")
-                                print("Tracker Added!")
-                            else:
-                                selectedGhosts.remove("tracker")
-                                print("Tracker Removed!")
-                        elif(choice == "Random"):
-                            if "random" not in selectedGhosts:
-                                selectedGhosts.append("random")
-                                print("Random Added!")
-                            else:
-                                selectedGhosts.remove("random")
-                                print("Random Removed!")
-                        elif(choice == "Stationary"):
-                            if "stationary" not in selectedGhosts:
-                                selectedGhosts.append("stationary")
-                                print("Stationary Added!")
-                            else:
-                                selectedGhosts.remove("stationary")
-                                print("Stationary Removed!")
+# ── Shared UI helpers ─────────────────────────────────────────────────────────
 
-                        #Returns to menu
-                        elif(choice == "Main Menu"):
-                            current_state = "MainMenu"
+def draw_button(screen, rect, label, active=False, font_size=26):
+    """Draws a styled button with a yellow border and navy fill.
+       Active buttons use a green colour scheme instead."""
+    border = green_bdr if active else yellow
+    fill   = green_fill if active else navy
+    pygame.draw.rect(screen, border, rect, border_radius=6)
+    pygame.draw.rect(screen, fill, rect.inflate(-4, -4), border_radius=5)
+    font = pygame.font.Font(None, font_size)
+    surf = font.render(label, True, white)
+    screen.blit(surf, surf.get_rect(center=rect.center))
 
-                        elif(choice == "Run"):
-                            if not num_goals_input.isdigit():
-                                #Error handling for non number
-                                print("Please enter a positive numerical value for the number of goals.")
-                            else:
-                                num_goals = int(num_goals_input)
-                                if current_size == "Small":
-                                    goal_limit = 5
-                                else:
-                                    goal_limit = 10
-                                #Error handling for no input
-                                if(num_goals == 0):
-                                    print("No input detected!")
-                                #Limits maximum amount of goals
-                                elif(num_goals > goal_limit):
-                                    print("Exceeded maximum number of goals!")
-                                else:
-                                    #Pacman agent always starts at (1,1)
-                                    pacman = PacMan(1, 1, current_tile_size)
-                                    #Larger space so that there is room for side menu on right of screen
-                                    screen = pygame.display.set_mode((1200, 800))
-                                    #Breaks off console output to improve readability
-                                    print("-------------------------------------------------------")
-                                    print("Current Speed Set:", current_speed)
-                                    current_state = "Simulation"
-                                    #Makes ghosts if they are needed
-                                    if selectedGhosts:
-                                        Ghost = True
-                        #Will always show an updated list of ghosts in console based on user selection
-                        print("Ghosts Selected:", selectedGhosts)
-        
-        if current_state == "Simulation":
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = event.pos
-                for choice, button in simulation_buttons.items():
-                    #Handles choice of algorithm/option
-                    if button.collidepoint(x, y):
-                        #All buttons not related to an algorithm do not need to start the simulation
-                        if choice not in ("Speed", "Reset", "Rand Goal", "Menu", "Rand Ghost"):
-                            Go = True
 
-                        #Algorithm buttons
-                        if(choice == "DFS"):
-                            print("Executing Depth-First Search...")
-                            DFS = True
-                        elif(choice == "BFS"):
-                            print("Executing Breadth-First Search...")
-                            BFS = True
-                        elif(choice == "UCS"):
-                            print("Executing Uniform-Cost Search...")
-                            UCS = True
-                        elif(choice == "A*"):
-                            print("Executing A*...")
-                            AStar = True
-                        elif(choice == "Reflex"):
-                            print("Executing with a Reflex Agent...")
-                            Reflex = True
-                        elif(choice == "Minimax"):
-                            print("Executing with a Minimax Agent...")
-                            Minimax = True
-                        elif(choice == "AB Pruning"):
-                            print("Executing with an Alpha-Beta Pruning Agent...")
-                            ABPruning = True
-                        elif(choice == "(WIP)Expectimax"):
-                            print("Executing with an Expecitmax Agent...")
-                            Expectimax = True
+def draw_ghost_button(screen, rect, label, selected=False):
+    """Like draw_button but glows green when the ghost type is selected."""
+    draw_button(screen, rect, label, active=selected, font_size=26)
 
-                            #Maintenance and Environment buttons
-                        elif(choice == "Speed"):
-                            #Carousels between different speed tyoes
-                            if(current_speed == "Slow"):
-                                current_speed = "Fast"
-                            elif(current_speed == "Fast"):
-                                current_speed = "Debug"
-                            elif(current_speed == "Debug"):
-                                current_speed = "Slow"
-                            speed = speeds[current_speed]
-                            #Outputs choice and updates speed
-                            print("Speed set to", current_speed)
-                            pygame.display.flip()
 
-                        elif(choice == "Rand Goal"):
-                            print("Randomising Goals...")
-                            #Recreates goals in different locations
-                            goalCreated = False
+def draw_section_label(screen, text, center_x, y):
+    """Small uppercase label used as a section heading."""
+    font = pygame.font.Font(None, 20)
+    surf = font.render(text, True, yellow)
+    screen.blit(surf, (center_x - surf.get_width() // 2, y))
 
-                        elif(choice == 'Rand Ghost'):
-                            print("Randomising Ghost Locations...")
-                            if selectedGhosts:
-                                ghostLocations = []
-                                for ghost in selectedGhosts:
-                                    #Randomises each ghost's coords and updates the internal map accordingly
-                                    current_maze = ghost.update_ghost_costs(current_maze, False)
-                                    current_maze = ghost.generate_random_position(current_maze, foodGoal.goals)
-                                    ghostLocations.append((ghost.y, ghost.x))
-                                    #Keep a backup of new locations if the positions need to be reset
-                                    initial_ghost_locations = copy.deepcopy(ghostLocations)
-                            else:
-                                #Error handling if no ghosts were selected in customisation
-                                print("No ghosts within the simulation! Add some in Customisation.")
-                            #Rebuilds the maze with new ghosts
-                            mazeCreated = False
-                            
-                        elif(choice == "Reset" or choice ==  "Menu" or choice ==  "Customisation"):
-                            #All 3 choices reset all algorithms and maintenance
-                            #Stops AI Algorithms
-                            DFS = False
-                            BFS = False
-                            UCS = False
-                            AStar = False
-                            Reflex = False
-                            AdvReflex = False
-                            Minimax = False
-                            ABPruning = False
 
-                            #Stops and Resets Environment
-                            Go = False
-                            pathFound = False
-                            goalFound = False
-                            mazeCreated = False
-                            steps = 0
+def draw_pellet_row(screen, y, x_start, x_end, spacing=28, radius=4):
+    """Draws a row of Pac-Man pellet dots as a decorative separator."""
+    x = x_start
+    while x <= x_end:
+        pygame.draw.circle(screen, white, (int(x), y), radius)
+        x += spacing
 
-                            #Resets Goal states and positions
-                            foodGoal.goals = copy.deepcopy(initial_food_locations)
 
-                            #Resets ghost positions
-                            for i, ghost in enumerate(selectedGhosts):
-                                current_maze = ghost.update_ghost_costs(current_maze, False)
-                                (ghost.y, ghost.x) = initial_ghost_locations[i]
+def draw_title(screen, cx, cy):
+    """Renders the PAC-MAN title in yellow with a dark drop shadow."""
+    font = pygame.font.Font(None, 80)
+    shadow = font.render("PAC-MAN", True, (80, 70, 0))
+    screen.blit(shadow, shadow.get_rect(center=(cx + 3, cy + 3)))
+    title  = font.render("PAC-MAN", True, yellow)
+    screen.blit(title,  title.get_rect(center=(cx, cy)))
 
-                            #Resets Internal Map and Pac-Man agent
-                            current_tile_size, current_maze = maze_sizes[current_size]
-                            pacman.reset(screen)
 
-                            #End of Reset actions
-                            if(choice == "Menu" or choice ==  "Customisation"):
-                                selectedGhosts = []
-                                goalCreated = False
-                                #Practically resets entire state, so new maze size can be selected
-                                screen = pygame.display.set_mode((800, 800))
-                                if(choice == "Customisation"):
-                                #Goes to selected window
-                                    current_state = "Customise"
-                                else:
-                                    current_state = "MainMenu"
+def draw_sidebar(screen):
+    """Draws the navy sidebar background and the yellow left-edge separator."""
+    pygame.draw.rect(screen, navy, pygame.Rect(800, 0, 400, 800))
+    pygame.draw.line(screen, yellow, (800, 0), (800, 800), 2)
 
-    #Creates Main Menu window, with correct titles and text
-    if current_state == "MainMenu":
-        screen.fill(black)
-        font = pygame.font.Font(None, 36)
-        welcome_text = font.render("Welcome to the Pac-Man Simulator!", True, white)
-        text_rect = welcome_text.get_rect(center=(window_width // 2, window_height // 2 - 200))
-        sub_text = font.render("Please choose a maze to get started:", True, white)
-        sub_text_rect = welcome_text.get_rect(center=(window_width // 2, window_height // 2 - 125))
-        screen.blit(welcome_text, text_rect)
-        screen.blit(sub_text, sub_text_rect)
 
-        #Iterates over buttons in main menu dict and draws them accordingly
-        for size, button in main_menu_buttons.items():
-            pygame.draw.rect(screen, dark_blue, button)
-            font = pygame.font.Font(None, 36)
-            text = font.render(size, True, white)
-            text_rect = text.get_rect(center=button.center)
-            screen.blit(text, text_rect)
+# ── State ─────────────────────────────────────────────────────────────────────
 
-    #Creates Customisation window, with correct titles and text
-    if current_state == "Customise":
-        screen.fill(black)
-        font = pygame.font.Font(None, 36)
-        customise_text = font.render("Please customise the environment for your simulation", True, white)
-        goal_text = font.render("Number of Goals (Max: 10):", True, white)
-        ghost_text = font.render("Select the ghosts you wish to be featured:", True, white)
-        customise_rect = customise_text.get_rect(center=(window_width // 2, window_height // 2 - 300))
-        goal_rect = goal_text.get_rect(center=(window_width // 2, window_height // 2 - 200))
-        ghost_rect = ghost_text.get_rect(center=(window_width // 2, window_height // 2 - 50))
-        screen.blit(customise_text, customise_rect)
-        screen.blit(goal_text, goal_rect)
-        screen.blit(ghost_text, ghost_rect)
+def init_state(screen):
+    return {
+        'screen':         screen,
+        'current_state':  'MainMenu',
+        'current_speed':  'Slow',
+        'speed':          1,
+        'steps':          0,
+        'initial_food_locations':  [],
+        'initial_ghost_locations': [],
+        'goalFound':    False,
+        'pathFound':    False,
+        'selectedGhosts': [],
+        'Go':           False,
+        'mazeCreated':  False,
+        'Ghost':        False,
+        'goalCreated':  False,
+        'DFS':          False,
+        'BFS':          False,
+        'UCS':          False,
+        'AStar':        False,
+        'Reflex':       False,
+        'Minimax':      False,
+        'ABPruning':    False,
+        'Expectimax':   False,
+        'num_goals_input':    '',
+        'num_goals':          0,
+        'current_size':       None,
+        'current_tile_size':  None,
+        'current_maze':       None,
+        'pacman':             None,
+        'foodGoal':           None,
+        'path':               None,
+        'goal':               None,
+        'status_message':     '',
+        'current_algorithm':  'None',
+    }
 
-        #Creates an input box to enter number of goals to be created
-        input_box_center = input_box.center
-        pygame.draw.rect(screen, white, input_box)
-        input_render = input_font.render(num_goals_input, True, input_color)
-        input_render_rect = input_render.get_rect(center=input_box_center)
-        screen.blit(input_render, input_render_rect)
 
-        #Iterates over buttons in customisation dict and draws them accordingly
-        for size, button in customise_buttons.items():
-            pygame.draw.rect(screen, dark_blue, button)
-            font = pygame.font.Font(None, 36)
-            text = font.render(size, True, white)
-            text_rect = text.get_rect(center=button.center)
-            screen.blit(text, text_rect)        
-        
-        #Sets up Simulation window
-    if current_state == "Simulation":
+def set_status(state, msg):
+    state['status_message'] = msg
 
-        #Creates the maze
-        if not mazeCreated:
-            screen.fill(black)
-            for row in range(len(current_maze)):
-                for col in range(len(current_maze[row])):
-                    if current_maze[row][col] == "W":
-                        pygame.draw.rect(screen, dark_blue, (col * current_tile_size, row * current_tile_size, current_tile_size, current_tile_size))
-            mazeCreated = True
-        
-        #Creates the goals
-        if not goalCreated:
-            foodGoal = FoodGoal(current_tile_size)
-            foodGoal.generate_random_position(current_maze, num_goals)
-            initial_food_locations = copy.deepcopy(foodGoal.goals)
-            mazeCreated = False
-            goalCreated = True
 
-        #Iterates over buttons in simulation dict and draws them accordingly
-        for choice, button in simulation_buttons.items():                
-            pygame.draw.rect(screen, white, button)
-            font = pygame.font.Font(None, 36)
-            text = font.render(choice, True, black)
-            text_rect = text.get_rect(center=button.center)
-            screen.blit(text, text_rect)
+# ── Screen renderers ──────────────────────────────────────────────────────────
 
-        #Creates the ghosts
-        if Ghost:
-            ghostLocations = []
-            for i, ghost in enumerate(selectedGhosts):
-                #Each ghost is its own object
-                selectedGhosts[i] = Adversary(1, 1, current_tile_size, ghost)
-                current_maze = selectedGhosts[i].generate_random_position(current_maze, foodGoal.goals)
-                ghostLocations.append((selectedGhosts[i].y, selectedGhosts[i].x))
-                initial_ghost_locations = copy.deepcopy(ghostLocations)
-            Ghost = False
+def draw_main_menu(screen):
+    screen.fill(black)
+    pygame.draw.rect(screen, yellow, pygame.Rect(10, 10, window_width - 20, window_height - 20), 2)
+    draw_title(screen, window_width // 2, 90)
+    sub_font = pygame.font.Font(None, 30)
+    sub = sub_font.render("AI Search Algorithm Simulator", True, white)
+    screen.blit(sub, sub.get_rect(center=(window_width // 2, 145)))
+    draw_pellet_row(screen, 175, 40, window_width - 40)
+    draw_section_label(screen, "SELECT MAZE", window_width // 2, 215)
+    for size, button in main_menu_buttons.items():
+        draw_button(screen, button, size, font_size=30)
 
-        if selectedGhosts:
-            for ghost in selectedGhosts:
-                #Adds ghost costs to the internal map for agents and displays the ghost
-                current_maze = ghost.update_ghost_costs(current_maze, True)
-                ghost.display(screen)
 
-        #Displays the pacman and food goals
-        pacman.draw(screen)
-        foodGoal.create(screen)
+def draw_customise(screen, state):
+    screen.fill(black)
+    pygame.draw.rect(screen, yellow, pygame.Rect(10, 10, window_width - 20, window_height - 20), 2)
+    draw_title(screen, window_width // 2, 70)
+    sub_font = pygame.font.Font(None, 28)
+    sub = sub_font.render("Customise Your Environment", True, white)
+    screen.blit(sub, sub.get_rect(center=(window_width // 2, 120)))
+    draw_pellet_row(screen, 148, 40, window_width - 40)
 
-        #Initialises a local list to keep track of which goals are left
-        goals = foodGoal.goals
+    # Goals section
+    draw_section_label(screen, "NUMBER OF GOALS  (max 10, or 5 for Small)", window_width // 2, 175)
+    pygame.draw.rect(screen, yellow, input_box, border_radius=6)
+    pygame.draw.rect(screen, (30, 30, 70), input_box.inflate(-4, -4), border_radius=5)
+    inp = input_font.render(state['num_goals_input'], True, white)
+    screen.blit(inp, inp.get_rect(center=input_box.center))
 
-        #Handles algorithm selections
-        if Go:
-            #Increases number of moves counter
-            steps += 1
-            #Checks if the Pac-Man runs into a ghost, stops the simulation if it has been caught
-            if current_maze[pacman.y][pacman.x] == 2:
-                print("Pacman was caught!")
-                Go = False
-            
-            #DFS, BFS, UCS, AStar
-            if DFS or BFS or UCS or AStar and goals:
-                if goalFound == False:
-                    #Finds closest goal to current position
-                    goals = pacman.goal_sorter(goals, current_maze)
-                    goal = goals[0]
-                    goalFound = True
-                #Calculates path using chosen algorithm
-                if not pathFound:
-                    if DFS:
-                        path = pacman.dfs(current_maze, goal)
-                    elif BFS:
-                        path = pacman.bfs(current_maze, goal)
-                    elif UCS:
-                        path = pacman.ucs(current_maze, goal)
-                    elif AStar:
-                        path = pacman.a_star(current_maze, goal)
-                    pathFound = True
-                #Executes path step-by-step
-                if path:
-                    move = path.pop(0)
-                    pacman.update(screen, move, False)
-                    if((pacman.y, pacman.x) == goal):
-                        #If goal is reached, calculate path to next nearest goal
-                        goals.remove(goal)
-                        goalFound = False
-                        pathFound = False
-                        if not goals:
-                            #Returns number of moves taken to complete
-                            print("Beaten in", steps, "steps!")
-                            DFS = False
-                            BFS = False
-                            UCS = False
-                            AStar = False
-                            Go = False
-                    elif((pacman.y, pacman.x) in goals):
-                        #If a goal is found whilst reaching another point, it is also classed as eaten
-                        goals.remove((pacman.y, pacman.x))
-            
-            #Reflex
-            if Reflex and goals:
-                if goalFound == False:
-                    #Finds closest goal to current position
-                    goals = pacman.goal_sorter(goals, current_maze)
-                    goal = goals[0]
-                    goalFound = True
-                
-                x, y = pacman.x, pacman.y
-                #Checks if a ghost is near, reacts appropriately
-                pacman.detect(current_maze, goal, screen)
-
-                #Checks if the agent has already made a move
-                if ((pacman.y, pacman.x) == (y,x)):
-                    #If not, use A* to move towards the goal
-                    move = pacman.a_star(current_maze, goal)
-                    if move:
-                        pacman.update(screen, move.pop(0), False)
-
-                #If goal is reached, calculate path to next nearest goal
-                if (pacman.y, pacman.x) == goal:
-                    goals.remove(goal)
-                    goalFound = False
-
-                    if not goals:
-                        #Returns number of moves taken to complete
-                        print("Beaten in", steps, "steps!")
-                        Reflex = False
-                        Go = False
-
-                elif((pacman.y, pacman.x) in goals):
-                    #If a goal is found whilst reaching another point, it is also classed as eaten
-                    goals.remove((pacman.y, pacman.x))
-
-            #Minimax, AB Pruning, Expectimax
-            if Minimax or ABPruning or Expectimax:
-                #Error handling when there are no ghosts present within the maze
-                if selectedGhosts == []:
-                    print("Minimax, Expectimax and AB Pruning require at least 1 ghost to function, please add a type of ghost in Customisation.")
-                    Minimax = False
-                    ABPruning = False
-                    Expectimax = False
-                    Go = False
-                    continue
-                if goals:
-                    if goalFound == False:
-                        #Finds closest goal to current position
-                        goals = pacman.goal_sorter(goals, current_maze)
-                        goal = goals[0]
-                        goalFound = True
-
-                    #Executes selected algorithm
-                    if Minimax:
-                        pacman.minimax(goal, selectedGhosts, screen, 15, current_maze)
-                    elif ABPruning:
-                        pacman.ab_minimax(goal, selectedGhosts, screen, 15, current_maze)
-                    elif Expectimax:
-                        pacman.expectimax(goal, selectedGhosts, screen, 15, current_maze)
-                    #Redraws goals if they were affected during computation
-                    foodGoal.create(screen)
-                    if (pacman.y, pacman.x) == goal:
-                        #If goal is reached, calculate path to next nearest goal
-                        goals.remove(goal)
-                        goalFound = False
-                        pathFound = False
-                        if not goals:
-                            #Returns number of moves taken to complete
-                            print("Beaten in", steps, "steps!")
-                            Minimax = False
-                            ABPruning = False
-                            Expectimax = False
-                            Go = False
-                    elif((pacman.y, pacman.x) in goals):
-                        #If a goal is found whilst reaching another point, it is also classed as eaten
-                        goals.remove((pacman.y, pacman.x))
-
-            if(current_maze == None):
-                #Handles event where maze gets wiped
-                continue
-                
-            #Moves any ghost incremently during each iteration
-            if selectedGhosts and Go:
-                for ghost in selectedGhosts:
-                    current_maze = ghost.update_ghost_costs(current_maze, False)
-                    if ghost.type == "tracker":
-                        current_maze = ghost.a_star(current_maze, (pacman.y, pacman.x), screen)
-                    elif ghost.type == "random":
-                        current_maze = ghost.random_move(screen, current_maze)
-                if current_maze == None:
-                    current_tile_size, current_maze = maze_sizes[current_size]
-                #Updates ghost costs within internal map
-                current_maze = ghost.update_ghost_costs(current_maze, True)
-
-            #Slows down simulation so that the user has time to follow paths
-            time.sleep(speed)
-
-        #Adds functionality for manually moving the pacman around the maze using arrow keys
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_UP]:
-            pacman.move("up", current_maze, screen)
-        elif keys[pygame.K_DOWN]:
-            pacman.move("down", current_maze, screen)
-        elif keys[pygame.K_LEFT]:
-            pacman.move("left", current_maze, screen)
-        elif keys[pygame.K_RIGHT]:
-            pacman.move("right", current_maze, screen)
+    # Ghost section
+    draw_section_label(screen, "GHOST TYPES  —  click to toggle", window_width // 2, 278)
+    for choice, button in customise_buttons.items():
+        ghost_key = choice.lower()
+        if ghost_key in ('stationary', 'random', 'tracker'):
+            draw_ghost_button(screen, button, choice, selected=ghost_key in state['selectedGhosts'])
         else:
-            pacman.moving = False
+            draw_button(screen, button, choice, font_size=28)
 
-    pygame.display.flip()
+    # Status / validation message
+    if state['status_message']:
+        sf = pygame.font.Font(None, 26)
+        ss = sf.render(state['status_message'], True, amber_text)
+        screen.blit(ss, ss.get_rect(center=(window_width // 2, 460)))
 
-pygame.quit()
-sys.exit()
+
+# ── Event handlers ────────────────────────────────────────────────────────────
+
+def handle_main_menu_event(event, state):
+    if event.type == pygame.MOUSEBUTTONDOWN:
+        x, y = event.pos
+        for choice, button in main_menu_buttons.items():
+            if button.collidepoint(x, y):
+                if choice == "Exit":
+                    pygame.quit()
+                    sys.exit()
+                state['current_size'] = choice
+                state['current_tile_size'], state['current_maze'] = maze_sizes[choice]
+                state['current_state'] = "Customise"
+
+
+def handle_customise_event(event, state):
+    if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_BACKSPACE:
+            state['num_goals_input'] = state['num_goals_input'][:-1]
+        else:
+            state['num_goals_input'] += event.unicode
+    if event.type == pygame.MOUSEBUTTONDOWN:
+        x, y = event.pos
+        for choice, button in customise_buttons.items():
+            if button.collidepoint(x, y):
+                if choice == "Tracker":
+                    if "tracker" not in state['selectedGhosts']:
+                        state['selectedGhosts'].append("tracker")
+                    else:
+                        state['selectedGhosts'].remove("tracker")
+                elif choice == "Random":
+                    if "random" not in state['selectedGhosts']:
+                        state['selectedGhosts'].append("random")
+                    else:
+                        state['selectedGhosts'].remove("random")
+                elif choice == "Stationary":
+                    if "stationary" not in state['selectedGhosts']:
+                        state['selectedGhosts'].append("stationary")
+                    else:
+                        state['selectedGhosts'].remove("stationary")
+                elif choice == "Main Menu":
+                    state['current_state'] = "MainMenu"
+                elif choice == "Run":
+                    if not state['num_goals_input'].isdigit():
+                        set_status(state, "Please enter a number for goals.")
+                    else:
+                        num_goals = int(state['num_goals_input'])
+                        goal_limit = 5 if state['current_size'] == "Small" else 10
+                        if num_goals == 0:
+                            set_status(state, "Please enter a number of goals.")
+                        elif num_goals > goal_limit:
+                            set_status(state, f"Maximum {goal_limit} goals for this maze size.")
+                        else:
+                            state['pacman'] = PacMan(1, 1, state['current_tile_size'])
+                            state['screen'] = pygame.display.set_mode((1200, 800))
+                            state['status_message'] = ''
+                            state['current_state'] = "Simulation"
+                            state['num_goals'] = num_goals
+                            if state['selectedGhosts']:
+                                state['Ghost'] = True
+
+
+def reset_simulation(state):
+    state['DFS']          = False
+    state['BFS']          = False
+    state['UCS']          = False
+    state['AStar']        = False
+    state['Reflex']       = False
+    state['Minimax']      = False
+    state['ABPruning']    = False
+    state['Expectimax']   = False
+    state['Go']           = False
+    state['pathFound']    = False
+    state['goalFound']    = False
+    state['mazeCreated']  = False
+    state['steps']        = 0
+    state['status_message']    = ''
+    state['current_algorithm'] = 'None'
+    state['foodGoal'].goals = copy.deepcopy(state['initial_food_locations'])
+    for i, ghost in enumerate(state['selectedGhosts']):
+        state['current_maze'] = ghost.update_ghost_costs(state['current_maze'], False)
+        ghost.y, ghost.x = state['initial_ghost_locations'][i]
+    state['current_tile_size'], state['current_maze'] = maze_sizes[state['current_size']]
+    state['pacman'].reset(state['screen'])
+
+
+def handle_simulation_event(event, state):
+    if event.type == pygame.MOUSEBUTTONDOWN:
+        x, y = event.pos
+        for choice, button in simulation_buttons.items():
+            if button.collidepoint(x, y):
+                if choice not in ("Speed", "Reset", "Rand Goal", "Menu", "Rand Ghost"):
+                    state['Go'] = True
+                if choice == "DFS":
+                    state['current_algorithm'] = 'DFS'
+                    state['DFS'] = True
+                elif choice == "BFS":
+                    state['current_algorithm'] = 'BFS'
+                    state['BFS'] = True
+                elif choice == "UCS":
+                    state['current_algorithm'] = 'UCS'
+                    state['UCS'] = True
+                elif choice == "A*":
+                    state['current_algorithm'] = 'A*'
+                    state['AStar'] = True
+                elif choice == "Reflex":
+                    state['current_algorithm'] = 'Reflex'
+                    state['Reflex'] = True
+                elif choice == "Minimax":
+                    state['current_algorithm'] = 'Minimax'
+                    state['Minimax'] = True
+                elif choice == "AB Pruning":
+                    state['current_algorithm'] = 'AB Pruning'
+                    state['ABPruning'] = True
+                elif choice == "(WIP)Expectimax":
+                    state['current_algorithm'] = 'Expectimax'
+                    state['Expectimax'] = True
+                elif choice == "Speed":
+                    if state['current_speed'] == "Slow":
+                        state['current_speed'] = "Fast"
+                    elif state['current_speed'] == "Fast":
+                        state['current_speed'] = "Debug"
+                    elif state['current_speed'] == "Debug":
+                        state['current_speed'] = "Slow"
+                    state['speed'] = speeds[state['current_speed']]
+                    pygame.display.flip()
+                elif choice == "Rand Goal":
+                    set_status(state, "Goals randomised.")
+                    state['goalCreated'] = False
+                elif choice == "Rand Ghost":
+                    if state['selectedGhosts']:
+                        ghostLocations = []
+                        for ghost in state['selectedGhosts']:
+                            state['current_maze'] = ghost.update_ghost_costs(state['current_maze'], False)
+                            state['current_maze'] = ghost.generate_random_position(state['current_maze'], state['foodGoal'].goals)
+                            ghostLocations.append((ghost.y, ghost.x))
+                        state['initial_ghost_locations'] = copy.deepcopy(ghostLocations)
+                        set_status(state, "Ghost locations randomised.")
+                    else:
+                        set_status(state, "No ghosts! Add some in Customisation.")
+                    state['mazeCreated'] = False
+                elif choice in ("Reset", "Menu", "Customisation"):
+                    reset_simulation(state)
+                    if choice in ("Menu", "Customisation"):
+                        state['selectedGhosts'] = []
+                        state['goalCreated'] = False
+                        state['screen'] = pygame.display.set_mode((800, 800))
+                        state['current_state'] = "Customise" if choice == "Customisation" else "MainMenu"
+
+
+# ── Simulation rendering ──────────────────────────────────────────────────────
+
+def draw_info_panel(screen, state):
+    """Draws the status panel between the algorithm and controls sections."""
+    panel = pygame.Rect(_SX, 388, _SW, 112)
+    pygame.draw.rect(screen, yellow,   panel, border_radius=6)
+    pygame.draw.rect(screen, info_bg,  panel.inflate(-4, -4), border_radius=5)
+
+    lbl_font = pygame.font.Font(None, 18)
+    val_font = pygame.font.Font(None, 22)
+
+    def row(label, value, y, val_color=white):
+        lbl = lbl_font.render(label, True, dim_white)
+        val = val_font.render(value, True, val_color)
+        screen.blit(lbl, (_SX + 10, y))
+        screen.blit(val, (_SX + 10 + lbl.get_width() + 6, y - 1))
+
+    row("ALGORITHM", state['current_algorithm'], 397, yellow)
+    row("SPEED",     state['current_speed'],     421)
+    row("STEPS",     str(state['steps']),        445)
+
+    if state['status_message']:
+        msg = state['status_message']
+        if   "caught" in msg.lower(): color = red_text
+        elif "beaten" in msg.lower(): color = green_text
+        else:                         color = amber_text
+        sf = pygame.font.Font(None, 19)
+        ss = sf.render(msg, True, color)
+        screen.blit(ss, (_SX + 10, 470))
+
+
+def setup_simulation(state):
+    screen = state['screen']
+
+    # Draw maze walls (only when the maze needs rebuilding)
+    if not state['mazeCreated']:
+        screen.fill(black)
+        for row in range(len(state['current_maze'])):
+            for col in range(len(state['current_maze'][row])):
+                if state['current_maze'][row][col] == "W":
+                    pygame.draw.rect(
+                        screen, dark_blue,
+                        (col * state['current_tile_size'],
+                         row * state['current_tile_size'],
+                         state['current_tile_size'],
+                         state['current_tile_size'])
+                    )
+        state['mazeCreated'] = True
+
+    # Place food goals (only when needed)
+    if not state['goalCreated']:
+        state['foodGoal'] = FoodGoal(state['current_tile_size'])
+        state['foodGoal'].generate_random_position(state['current_maze'], state['num_goals'])
+        state['initial_food_locations'] = copy.deepcopy(state['foodGoal'].goals)
+        state['mazeCreated'] = False
+        state['goalCreated'] = True
+
+    # ── Sidebar (redrawn every frame) ────────────────────────────────────────
+    draw_sidebar(screen)
+
+    draw_section_label(screen, "ALGORITHMS", 1000, 10)
+    for choice, button in simulation_buttons.items():
+        flag_key  = ALGO_FLAGS.get(choice)
+        is_active = bool(flag_key and state[flag_key])
+        draw_button(screen, button, choice, active=is_active, font_size=24)
+
+    draw_info_panel(screen, state)
+    draw_section_label(screen, "CONTROLS", 1000, 506)
+
+    # Place ghosts (only on first frame after entering simulation)
+    if state['Ghost']:
+        ghostLocations = []
+        for i, ghost in enumerate(state['selectedGhosts']):
+            state['selectedGhosts'][i] = Adversary(1, 1, state['current_tile_size'], ghost)
+            state['current_maze'] = state['selectedGhosts'][i].generate_random_position(
+                state['current_maze'], state['foodGoal'].goals)
+            ghostLocations.append((state['selectedGhosts'][i].y, state['selectedGhosts'][i].x))
+        state['initial_ghost_locations'] = copy.deepcopy(ghostLocations)
+        state['Ghost'] = False
+
+    if state['selectedGhosts']:
+        for ghost in state['selectedGhosts']:
+            state['current_maze'] = ghost.update_ghost_costs(state['current_maze'], True)
+            ghost.display(screen)
+
+    state['pacman'].draw(screen)
+    state['foodGoal'].create(screen)
+
+
+# ── Simulation logic ──────────────────────────────────────────────────────────
+
+def run_simulation_step(state):
+    screen = state['screen']
+    goals  = state['foodGoal'].goals
+    pacman = state['pacman']
+
+    if not state['Go']:
+        return
+
+    state['steps'] += 1
+
+    if state['current_maze'][pacman.y][pacman.x] == 2:
+        set_status(state, "Pacman was caught!")
+        state['Go'] = False
+        return
+
+    # ── Search algorithms (DFS / BFS / UCS / A*) ────────────────────────────
+    if (state['DFS'] or state['BFS'] or state['UCS'] or state['AStar']) and goals:
+        if not state['goalFound']:
+            goals = pacman.goal_sorter(goals, state['current_maze'])
+            state['goal'] = goals[0]
+            state['goalFound'] = True
+        if not state['pathFound']:
+            if state['DFS']:
+                state['path'] = pacman.dfs(state['current_maze'], state['goal'])
+            elif state['BFS']:
+                state['path'] = pacman.bfs(state['current_maze'], state['goal'])
+            elif state['UCS']:
+                state['path'] = pacman.ucs(state['current_maze'], state['goal'])
+            elif state['AStar']:
+                state['path'] = pacman.a_star(state['current_maze'], state['goal'])
+            state['pathFound'] = True
+        if state['path']:
+            move = state['path'].pop(0)
+            pacman.update(screen, move, False)
+            if (pacman.y, pacman.x) == state['goal']:
+                goals.remove(state['goal'])
+                state['goalFound'] = False
+                state['pathFound'] = False
+                if not goals:
+                    set_status(state, f"Beaten in {state['steps']} steps!")
+                    state['DFS'] = state['BFS'] = state['UCS'] = state['AStar'] = state['Go'] = False
+            elif (pacman.y, pacman.x) in goals:
+                goals.remove((pacman.y, pacman.x))
+
+    # ── Reflex agent ─────────────────────────────────────────────────────────
+    if state['Reflex'] and goals:
+        if not state['goalFound']:
+            goals = pacman.goal_sorter(goals, state['current_maze'])
+            state['goal'] = goals[0]
+            state['goalFound'] = True
+        x, y = pacman.x, pacman.y
+        pacman.detect(state['current_maze'], state['goal'], screen)
+        if (pacman.y, pacman.x) == (y, x):
+            move = pacman.a_star(state['current_maze'], state['goal'])
+            if move:
+                pacman.update(screen, move.pop(0), False)
+        if (pacman.y, pacman.x) == state['goal']:
+            goals.remove(state['goal'])
+            state['goalFound'] = False
+            if not goals:
+                set_status(state, f"Beaten in {state['steps']} steps!")
+                state['Reflex'] = state['Go'] = False
+        elif (pacman.y, pacman.x) in goals:
+            goals.remove((pacman.y, pacman.x))
+
+    # ── Adversarial algorithms (Minimax / AB Pruning / Expectimax) ───────────
+    if state['Minimax'] or state['ABPruning'] or state['Expectimax']:
+        if not state['selectedGhosts']:
+            set_status(state, "Minimax/AB/Expectimax needs at least 1 ghost!")
+            state['Minimax'] = state['ABPruning'] = state['Expectimax'] = state['Go'] = False
+            return
+        if goals:
+            if not state['goalFound']:
+                goals = pacman.goal_sorter(goals, state['current_maze'])
+                state['goal'] = goals[0]
+                state['goalFound'] = True
+            if state['Minimax']:
+                pacman.minimax(state['goal'], state['selectedGhosts'], screen, 15, state['current_maze'])
+            elif state['ABPruning']:
+                pacman.ab_minimax(state['goal'], state['selectedGhosts'], screen, 15, state['current_maze'])
+            elif state['Expectimax']:
+                pacman.expectimax(state['goal'], state['selectedGhosts'], screen, 15, state['current_maze'])
+            state['foodGoal'].create(screen)
+            if (pacman.y, pacman.x) == state['goal']:
+                goals.remove(state['goal'])
+                state['goalFound'] = False
+                state['pathFound'] = False
+                if not goals:
+                    set_status(state, f"Beaten in {state['steps']} steps!")
+                    state['Minimax'] = state['ABPruning'] = state['Expectimax'] = state['Go'] = False
+            elif (pacman.y, pacman.x) in goals:
+                goals.remove((pacman.y, pacman.x))
+
+    if state['current_maze'] is None:
+        return
+
+    # ── Ghost movement ────────────────────────────────────────────────────────
+    if state['selectedGhosts'] and state['Go']:
+        for ghost in state['selectedGhosts']:
+            state['current_maze'] = ghost.update_ghost_costs(state['current_maze'], False)
+            if ghost.type == "tracker":
+                state['current_maze'] = ghost.a_star(state['current_maze'], (pacman.y, pacman.x), screen)
+            elif ghost.type == "random":
+                state['current_maze'] = ghost.random_move(screen, state['current_maze'])
+        if state['current_maze'] is None:
+            state['current_tile_size'], state['current_maze'] = maze_sizes[state['current_size']]
+        state['current_maze'] = ghost.update_ghost_costs(state['current_maze'], True)
+
+    time.sleep(state['speed'])
+
+
+def handle_manual_movement(state):
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_UP]:
+        state['pacman'].move("up",    state['current_maze'], state['screen'])
+    elif keys[pygame.K_DOWN]:
+        state['pacman'].move("down",  state['current_maze'], state['screen'])
+    elif keys[pygame.K_LEFT]:
+        state['pacman'].move("left",  state['current_maze'], state['screen'])
+    elif keys[pygame.K_RIGHT]:
+        state['pacman'].move("right", state['current_maze'], state['screen'])
+    else:
+        state['pacman'].moving = False
+
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
+
+def main():
+    pygame.display.set_caption("Pac-Man AI Search Algorithm Simulator")
+    screen = pygame.display.set_mode((window_width, window_height))
+    state  = init_state(screen)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif state['current_state'] == "MainMenu":
+                handle_main_menu_event(event, state)
+            elif state['current_state'] == "Customise":
+                handle_customise_event(event, state)
+            elif state['current_state'] == "Simulation":
+                handle_simulation_event(event, state)
+
+        if state['current_state'] == "MainMenu":
+            draw_main_menu(state['screen'])
+        elif state['current_state'] == "Customise":
+            draw_customise(state['screen'], state)
+        elif state['current_state'] == "Simulation":
+            setup_simulation(state)
+            run_simulation_step(state)
+            handle_manual_movement(state)
+
+        pygame.display.flip()
+
+    pygame.quit()
+    sys.exit()
+
+
+if __name__ == '__main__':
+    main()

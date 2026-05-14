@@ -77,7 +77,6 @@ class Adversary:
         self.x = col
         self.y = row
         #Prints location of ghost in internal map
-        print("Ghost Created at", row, col)
         return (self.update_ghost_costs(maze, True))
                         
     def find_random_free_tile(self, maze, goals):
